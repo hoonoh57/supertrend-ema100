@@ -1,0 +1,2 @@
+# Supertrend-EMA100 backtest engine
+requests>=2.31.0

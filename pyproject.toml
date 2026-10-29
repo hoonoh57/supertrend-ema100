@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supertrend-ema100"
+version = "0.1.0"
+description = "Supertrend-EMA100 breakout backtest with Kiwoom REST data"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["requests>=2.31.0"]
+
+[project.scripts]
+supertrend-ema100 = "supertrend_ema100.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+supertrend_ema100 = ["py.typed"]

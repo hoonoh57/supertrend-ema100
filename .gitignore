@@ -1,0 +1,13 @@
+# --- secrets / local env ---
+.env
+.env.*
+!.env.example
+
+# --- runtime output ---
+.cache/
+runs/
+*.pyc
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
