@@ -8,6 +8,7 @@ from enum import Enum
 
 from ..config import BacktestConfig
 from ..data.series import SymbolSeries
+from ..data.universe import capture_minute, parse_hhmmss, watch_phase
 from ..indicators.basic import round_to_tick, tick_size
 from ..indicators.extension import extension_value
 from .filters import (
@@ -161,12 +162,14 @@ class SymbolStateMachine:
         self.gap_consumed = False
         self.last_intent: EntryIntent | None = None
         self.events: list[StrategyEvent] = []
+        self.prewatch_armed = False
 
     def _reset_day(self, day: str) -> None:
         if day != self.current_day:
             self.current_day = day
             self.entries_today = 0
             self.gap_consumed = False
+            self.prewatch_armed = False
 
     def on_exit(self, index: int) -> None:
         self.state = State.IDLE
@@ -219,6 +222,39 @@ class SymbolStateMachine:
         if self.state == State.IN_POS:
             return events, None
 
+        phase = watch_phase(
+            series.capture,
+            bar.day,
+            bar.minute_of_day,
+            capture_minute(parse_hhmmss(cfg.universe.watch_start)),
+        )
+        if phase == "off":
+            self.state = State.IDLE
+            self.prewatch_armed = False
+            return events, None
+        if phase == "pre":
+            if self.state == State.PENDING:
+                self.state, self.t0 = State.DEFERRED, i
+            elif (
+                self.state == State.IDLE
+                and cfg.universe.prewatch_trigger != "ignore"
+                and is_trigger(series, i)
+            ):
+                self.state, self.t0 = State.DEFERRED, i
+                self.prewatch_armed = True
+                events.append(
+                    _event(
+                        series,
+                        i,
+                        cfg,
+                        "T1",
+                        State.IDLE,
+                        State.DEFERRED,
+                        reasons=["PREWATCH"],
+                    )
+                )
+            return events, None
+
         if day_blocked(series, i, cfg):
             if self.state != State.IDLE:
                 events.append(
@@ -236,6 +272,10 @@ class SymbolStateMachine:
             return events, None
 
         trig = is_trigger(series, i)
+        if self.prewatch_armed and self.state == State.DEFERRED:
+            self.prewatch_armed = False
+            if cfg.universe.prewatch_trigger == "carry" and trig_state(series, i):
+                trig = True
 
         if self.state == State.IDLE:
             if trig:

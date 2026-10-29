@@ -24,6 +24,7 @@ from .backtest.report import write_report
 from .config import BacktestConfig, _coerce
 from .data.cache import BarCache
 from .data.loader import load_backtest_data
+from .data.universe import load_universe, universe_range, universe_symbols
 from .kiwoom.auth import KiwoomError
 from .kiwoom.client import KiwoomClient
 from .kiwoom.env import resolve_credentials
@@ -72,6 +73,8 @@ def _apply_override(cfg: BacktestConfig, item: str) -> None:
 
 def build_config(args: argparse.Namespace) -> BacktestConfig:
     cfg = BacktestConfig.from_json(args.config) if args.config else BacktestConfig()
+    if getattr(args, "universe", None):
+        cfg.universe.file = args.universe
     if getattr(args, "symbols", None):
         cfg.data.symbols = _symbols(args.symbols)
     if getattr(args, "start", None):
@@ -106,6 +109,16 @@ def build_config(args: argparse.Namespace) -> BacktestConfig:
             cfg.selection = "score"
     for item in getattr(args, "set", None) or []:
         _apply_override(cfg, item)
+    if cfg.universe.file and not getattr(args, "symbols", None):
+        universe = load_universe(
+            cfg.universe.file, cfg.universe.capture_from, cfg.universe.capture_to
+        )
+        cfg.data.symbols = universe_symbols(universe)
+        span = universe_range(universe)
+        if span is None:
+            raise ValueError("universe 파일에 포착 구간에 해당하는 종목이 없습니다")
+        cfg.data.start = cfg.data.start or span[0]
+        cfg.data.end = cfg.data.end or span[1]
     cfg.validate()
     return cfg
 
@@ -225,6 +238,10 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
         "--symbols",
         action="append",
         help="종목 코드 또는 이름. 쉼표로 여러 개 (예: 005930,삼성전자)",
+    )
+    parser.add_argument(
+        "--universe",
+        help="조건식 포착 CSV (date,code,time). 종목/기간 자동 설정",
     )
     parser.add_argument("--config", help="JSON 설정 파일 경로")
     parser.add_argument("--start", help="백테스트 시작일 YYYY-MM-DD")

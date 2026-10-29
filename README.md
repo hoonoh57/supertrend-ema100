@@ -92,6 +92,7 @@ If the first argument is not a subcommand, `backtest` is assumed.
 | Option | Meaning |
 | --- | --- |
 | `--symbols 005930,삼성전자` | Codes or Korean names, comma-separated; repeatable |
+| `--universe file.csv` | Use a condition-search capture CSV (`date,code,time`) to select symbols and dates |
 | `--start YYYY-MM-DD` | Backtest start (overrides `--days`) |
 | `--end YYYY-MM-DD` | Last requested trading day (default: latest) |
 | `--days N` | Number of trading days when `--start` is absent |
@@ -125,6 +126,29 @@ stage without changing the command line.
 Unknown keys and invalid values are rejected, so a typo cannot silently change
 a run.
 
+### Condition-search capture universe
+
+The optional CSV uses `date,code,time[,name]` columns. The first capture per
+symbol and day is used. `--universe` selects the symbols and date span
+automatically; the data is filtered by `universe.capture_from` and
+`universe.capture_to`. Entries are allowed only after both the capture time
+and `universe.watch_start`.
+
+Before the watch opens, `universe.prewatch_trigger` controls an already-fired
+T1: `defer` waits for a later re-arm/new trigger, `carry` allows the original
+setup at watch start only while ST remains above EMA, and `ignore` discards it.
+With `universe.file` empty, the default `watch_start=0900` leaves the existing
+session behavior unchanged.
+
+```powershell
+python run_backtest.py backtest --universe universe.csv --out runs/u_live
+python run_backtest.py backtest --universe universe.csv --out runs/u_0903 `
+    --set universe.watch_start=0903
+python run_backtest.py backtest --universe universe.csv --out runs/u_carry `
+    --set universe.watch_start=0903 --set universe.prewatch_trigger=carry
+python tools/capture_mfe.py --universe universe.csv --minutes 60
+```
+
 ## 4. Strategy mapping
 
 | Plan section | Implementation |
@@ -143,6 +167,7 @@ a run.
 | 4.3 re-arm | `filters.rearm_event` (ST / JMA / EITHER, pullback depth) |
 | 4.4 confirmation | `filters.confirm_checks` (K_VAL, K_VWAP, K_RTI, K_BUY, K_RSI, K_SCORE) |
 | 4.5 state machine | `strategy/state_machine.py` |
+| 4.5 capture/watch gate | `data/universe.py`, pre-watch handling in `strategy/state_machine.py` |
 | 4.6 sizing | `Portfolio.open` |
 | 4.7 exits | `BacktestEngine._process_position` (X_STOP, X_TRAIL, X_TP, X_EXH, X_TIME/EOD) |
 | 6.2 portfolio | `Portfolio`, `max_positions`, score/time/random selection |

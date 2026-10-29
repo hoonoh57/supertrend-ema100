@@ -233,6 +233,15 @@ class DataConfig:
 
 
 @dataclass
+class UniverseConfig:
+    file: str = ""
+    capture_from: str = "0900"
+    capture_to: str = "1520"
+    watch_start: str = "0900"
+    prewatch_trigger: str = "defer"
+
+
+@dataclass
 class BacktestConfig:
     data: DataConfig = field(default_factory=DataConfig)
     indicators: IndicatorConfig = field(default_factory=IndicatorConfig)
@@ -243,6 +252,7 @@ class BacktestConfig:
     exits: ExitConfig = field(default_factory=ExitConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
     score: ScoreConfig = field(default_factory=ScoreConfig)
+    universe: UniverseConfig = field(default_factory=UniverseConfig)
 
     # portfolio selection / housekeeping
     selection: str = "time"  # score | time | random  (stage 1 = time)
@@ -294,3 +304,12 @@ class BacktestConfig:
             raise ValueError("delay.ext_ref must be breakout or st_line")
         if self.delay.ext_fresh_bars < 0:
             raise ValueError("delay.ext_fresh_bars must be >= 0")
+        if self.universe.prewatch_trigger not in ("defer", "carry", "ignore"):
+            raise ValueError("universe.prewatch_trigger must be defer, carry or ignore")
+        from .data.universe import parse_hhmmss
+
+        capture_from = parse_hhmmss(self.universe.capture_from)
+        capture_to = parse_hhmmss(self.universe.capture_to)
+        parse_hhmmss(self.universe.watch_start)
+        if capture_from > capture_to:
+            raise ValueError("universe.capture_from must be <= universe.capture_to")

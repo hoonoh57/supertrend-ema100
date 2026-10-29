@@ -13,6 +13,7 @@ from ..kiwoom.client import KiwoomClient
 from ..kiwoom.models import Bar, DailyBar, StockInfo
 from .cache import BarCache
 from .series import SymbolSeries, build_series
+from .universe import load_universe
 
 LogFn = Callable[[str], None]
 
@@ -242,6 +243,13 @@ def load_backtest_data(
 
     if not series:
         raise RuntimeError("지표 계산에 성공한 종목이 없습니다: " + "; ".join(warned))
+
+    if cfg.universe.file:
+        universe = load_universe(
+            cfg.universe.file, cfg.universe.capture_from, cfg.universe.capture_to
+        )
+        for code, symbol_series in series.items():
+            symbol_series.capture = universe.get(code, {})
 
     return LoadedData(
         series=series,

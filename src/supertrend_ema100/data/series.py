@@ -70,6 +70,7 @@ class SymbolSeries:
     feature_mode: str
     index_by_ts: dict[str, int] = field(default_factory=dict)
     st_upper: list[float] = field(default_factory=list)
+    capture: dict[str, int] | None = None
 
     @property
     def code(self) -> str:
