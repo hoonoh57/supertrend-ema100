@@ -25,6 +25,8 @@ SIGNAL_FIELDS = [
     "grade",
     "close",
     "d_value",
+    "ext_value",
+    "ext_kind",
     "rti_1",
     "rti_3",
     "rti_10",

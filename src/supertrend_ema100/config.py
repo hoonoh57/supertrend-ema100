@@ -96,6 +96,10 @@ class DelayConfig:
     bar_ret_pct: float = 0.02
     bar_lookback: int = 2
     max_day_ret: float = 0.20
+    # A fresh up-flip measures extension from the broken band before using the ST line.
+    ext_ref: str = "breakout"
+    ext_max: float = 1.0
+    ext_fresh_bars: int = 10
     # VI release feed is not part of the REST chart API.  0 = filter disabled.
     vi_release_hhmm: str | None = None
 
@@ -121,6 +125,7 @@ class ConfirmConfig:
     use_vwap: bool = True
     use_rti: bool = True
     min_rti: float = 2.0
+    min_rti_tick: float = 2.0
     use_buy_ratio: bool = True
     min_buy_ratio: float = 0.55
     use_rsi: bool = False
@@ -194,6 +199,10 @@ class ScoreConfig:
     m5_lin: tuple[float, float] = (1.0, 2.0)
     m6_percentiles: tuple[float, float] = (50.0, 95.0)
     p_ext_lin: tuple[float, float] = (1.0, 2.5)
+    p_ext_lin_breakout: tuple[float, float] = (0.5, 1.5)
+    m1_lin_tick: tuple[float, float] = (0.0, 2.58)
+    m4_lin_tick: tuple[float, float] = (0.0, 0.4)
+    p_div_er_tick: float = 0.1
     p_vi_lin: tuple[float, float] = (0.0, 0.03)
     p_div_rti: float = 4.0
     p_div_er: float = 0.1
@@ -279,3 +288,7 @@ class BacktestConfig:
                 raise ValueError("score.u_weights must sum to 1")
             if abs(sum(self.score.m_weights) - 1.0) > 1e-9:
                 raise ValueError("score.m_weights must sum to 1")
+        if self.delay.ext_ref not in ("breakout", "st_line"):
+            raise ValueError("delay.ext_ref must be breakout or st_line")
+        if self.delay.ext_fresh_bars < 0:
+            raise ValueError("delay.ext_fresh_bars must be >= 0")

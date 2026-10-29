@@ -96,6 +96,9 @@ def compute_score(
     st_line: float | None,
     atr: float | None,
     vi_up: float | None,
+    ext_value: float | None = None,
+    ext_kind: str | None = None,
+    feature_mode: str = "bar",
     grade_multipliers: dict[str, float] | None = None,
 ) -> ScoreResult:
     if not cfg.enabled:
@@ -116,10 +119,15 @@ def compute_score(
         + cfg.u_weights[2] * u3
     )
 
-    m1 = lin(math.log2(rti_3) if rti_3 and rti_3 > 0 else None, *cfg.m1_lin)
+    tick_mode = feature_mode == "tick"
+    m1_range = cfg.m1_lin_tick if tick_mode else cfg.m1_lin
+    m4_range = cfg.m4_lin_tick if tick_mode else cfg.m4_lin
+    div_er = cfg.p_div_er_tick if tick_mode else cfg.p_div_er
+
+    m1 = lin(math.log2(rti_3) if rti_3 and rti_3 > 0 else None, *m1_range)
     m2 = lin(accel, *cfg.m2_lin)
     m3 = lin(buy_ratio, *cfg.m3_lin)
-    m4 = lin(er_tick, *cfg.m4_lin)
+    m4 = lin(er_tick, *m4_range)
     # A missing ATV/TOV feed is treated as neutral, not as "large hands".
     m5 = lin(atv_ratio, *cfg.m5_lin) if atv_ratio is not None else 0.5
     if tov is not None and tov_p50 is not None and tov_p95 is not None:
@@ -135,10 +143,14 @@ def compute_score(
         + cfg.m_weights[5] * m6
     )
 
-    d_value = None
-    if st_line is not None and atr is not None and atr > 0:
-        d_value = (close - st_line) / atr
-    p_ext = 0.5 * lin(d_value, *cfg.p_ext_lin)
+    if ext_value is not None and ext_kind is not None:
+        ext_range = cfg.p_ext_lin_breakout if ext_kind == "E" else cfg.p_ext_lin
+        p_ext = 0.5 * lin(ext_value, *ext_range)
+    else:
+        d_value = None
+        if st_line is not None and atr is not None and atr > 0:
+            d_value = (close - st_line) / atr
+        p_ext = 0.5 * lin(d_value, *cfg.p_ext_lin)
     if vi_up is not None and close > 0:
         vi_distance_pct = (vi_up - close) / close
         p_vi = 0.5 * (1.0 - lin(vi_distance_pct, *cfg.p_vi_lin))
@@ -146,7 +158,7 @@ def compute_score(
         p_vi = 0.0
     p_div = (
         cfg.p_div_penalty
-        if (rti_3 is not None and rti_3 >= cfg.p_div_rti and er_tick is not None and er_tick < cfg.p_div_er)
+        if (rti_3 is not None and rti_3 >= cfg.p_div_rti and er_tick is not None and er_tick < div_er)
         else 0.0
     )
     p = (1.0 - p_ext) * (1.0 - p_vi) * (1.0 - p_div)

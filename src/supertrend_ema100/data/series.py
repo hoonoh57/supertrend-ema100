@@ -18,6 +18,7 @@ from ..indicators.basic import (
     supertrend,
     tick_size,
 )
+from ..indicators.extension import extension_value
 from ..indicators.score import ScoreResult, compute_score
 from ..indicators.tick_strength import BaselineCurve, TickFeatures, compute_tick_features
 from ..kiwoom.models import Bar, DailyBar, StockInfo
@@ -68,6 +69,7 @@ class SymbolSeries:
     market_cap: list[float]
     feature_mode: str
     index_by_ts: dict[str, int] = field(default_factory=dict)
+    st_upper: list[float] = field(default_factory=list)
 
     @property
     def code(self) -> str:
@@ -152,8 +154,11 @@ def _above_vwap_ratio(
     bars: Sequence[Bar], vwap: Sequence[float | None], window: int = 30
 ) -> list[float | None]:
     out: list[float | None] = [None] * len(bars)
+    day_start = 0
     for i in range(len(bars)):
-        lo = max(0, i - window + 1)
+        if i == 0 or bars[i].day != bars[i - 1].day:
+            day_start = i
+        lo = max(day_start, i - window + 1)
         count = 0
         total = 0
         for j in range(lo, i + 1):
@@ -236,12 +241,37 @@ def build_series(
     above = _above_vwap_ratio(bars, vwap_result.vwap, 30)
     slope: list[float | None] = [None] * len(bars)
     for i in range(len(bars)):
-        if i >= 10 and vwap_result.vwap[i] is not None and vwap_result.vwap[i - 10] is not None:
+        if (
+            i >= 10
+            and bars[i - 10].day == bars[i].day
+            and vwap_result.vwap[i] is not None
+            and vwap_result.vwap[i - 10] is not None
+        ):
             atr = st_result.atr[i]
             if atr > 0:
                 slope[i] = (float(vwap_result.vwap[i]) - float(vwap_result.vwap[i - 10])) / atr
 
     tov_p50, tov_p95 = _tov_percentiles(bars, features, cfg.baseline.base_days)
+
+    ext_values: list[tuple[float | None, float, str]] = []
+    for i, bar in enumerate(bars):
+        if st_result.ready[i]:
+            ext_values.append(
+                extension_value(
+                    i,
+                    bar.close,
+                    st_result.atr[i],
+                    st_result.st[i],
+                    st_result.direction,
+                    st_result.upper,
+                    ref=cfg.delay.ext_ref,
+                    d_max=cfg.delay.d_max,
+                    ext_max=cfg.delay.ext_max,
+                    fresh_bars=cfg.delay.ext_fresh_bars,
+                )
+            )
+        else:
+            ext_values.append((None, cfg.delay.d_max, "D"))
 
     scores: list[ScoreResult] = []
     for i, bar in enumerate(bars):
@@ -264,6 +294,9 @@ def build_series(
                 st_line=st_result.st[i] if st_result.ready[i] else None,
                 atr=st_result.atr[i] if st_result.ready[i] else None,
                 vi_up=vi_up[i],
+                ext_value=ext_values[i][0],
+                ext_kind=ext_values[i][2] if ext_values[i][0] is not None else None,
+                feature_mode=features.feature_mode,
                 grade_multipliers=cfg.risk.grade_multipliers,
             )
         )
@@ -295,6 +328,7 @@ def build_series(
         tov_p95=tov_p95,
         market_cap=market_cap,
         feature_mode=features.feature_mode,
+        st_upper=st_result.upper,
     )
     series.index_by_ts = {b.ts: i for i, b in enumerate(bars)}
     return series

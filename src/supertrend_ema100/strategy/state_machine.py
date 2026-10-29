@@ -9,6 +9,7 @@ from enum import Enum
 from ..config import BacktestConfig
 from ..data.series import SymbolSeries
 from ..indicators.basic import round_to_tick, tick_size
+from ..indicators.extension import extension_value
 from .filters import (
     confirm_checks,
     day_blocked,
@@ -42,6 +43,8 @@ class StrategyEvent:
     # feature snapshot
     close: float = 0.0
     d_value: float | None = None
+    ext_value: float | None = None
+    ext_kind: str = ""
     rti_1: float | None = None
     rti_3: float | None = None
     rti_10: float | None = None
@@ -80,9 +83,23 @@ def _snapshot(series: SymbolSeries, i: int, cfg: BacktestConfig) -> dict[str, ob
     bar = series.bars[i]
     atr = series.atr[i]
     d_value = (bar.close - series.st[i]) / atr if atr > 0 else None
+    ext, _limit, ext_kind = extension_value(
+        i,
+        bar.close,
+        atr,
+        series.st[i],
+        series.direction,
+        series.st_upper,
+        ref=cfg.delay.ext_ref,
+        d_max=cfg.delay.d_max,
+        ext_max=cfg.delay.ext_max,
+        fresh_bars=cfg.delay.ext_fresh_bars,
+    )
     return {
         "close": bar.close,
         "d_value": d_value,
+        "ext_value": ext,
+        "ext_kind": ext_kind,
         "rti_1": series.features.rti_1[i],
         "rti_3": series.features.rti_3[i],
         "rti_10": series.features.rti_10[i],

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ..config import BacktestConfig
 from ..data.series import SymbolSeries
+from ..indicators.extension import extension_value
 
 
 def _finite(value: float | None) -> bool:
@@ -29,11 +30,20 @@ def delay_reasons(
 ) -> list[str]:
     bar = series.bars[i]
     reasons: list[str] = []
-    atr = series.atr[i]
-    st = series.st[i]
-    if atr > 0 and _finite(st):
-        if (bar.close - st) / atr > cfg.delay.d_max:
-            reasons.append("EXT")
+    ext, limit, _kind = extension_value(
+        i,
+        bar.close,
+        series.atr[i],
+        series.st[i],
+        series.direction,
+        series.st_upper,
+        ref=cfg.delay.ext_ref,
+        d_max=cfg.delay.d_max,
+        ext_max=cfg.delay.ext_max,
+        fresh_bars=cfg.delay.ext_fresh_bars,
+    )
+    if ext is not None and ext > limit:
+        reasons.append("EXT")
     vi_up = series.vi_up[i]
     if _finite(vi_up) and bar.close > 0:
         if (float(vi_up) - bar.close) / bar.close < cfg.delay.vi_buffer_pct:
@@ -149,10 +159,11 @@ def confirm_checks(series: SymbolSeries, i: int, cfg: BacktestConfig) -> Confirm
         checks["K_VWAP"] = series.vwap[i] is not None and bar.close > float(series.vwap[i])
     if c.use_rti:
         rti = series.features.rti_3[i]
+        threshold = c.min_rti_tick if series.feature_mode == "tick" else c.min_rti
         checks["K_RTI"] = (
             series.features.baseline_ready[i]
             and rti is not None
-            and rti >= c.min_rti
+            and rti >= threshold
         )
     if c.use_buy_ratio:
         value = series.features.buy_ratio_5[i]

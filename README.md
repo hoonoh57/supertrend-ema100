@@ -56,10 +56,12 @@ The defaults are deliberately strict (`min_rti=2.0`, `buy_ratio>=0.55`,
 `D<=1.5 ATR`, 3-bar confirmation window).  On a quiet 2-symbol/30-day window
 this can legitimately produce zero entries.  Two independent reasons:
 
-* **`EXT` is structural at T1.**  Supertrend uses `st_mult=2.0`, so a fresh
-  up-flip puts the close roughly 2.0–2.5 ATR above the line.  `F_EXT` therefore
-  defers almost every T1; entries must wait for a pullback re-arm that comes
-  back within `d_max` (1.5 ATR) of the line.
+* **`EXT` reference.** A fresh Supertrend up-flip leaves the close about
+  `st_mult` ATR above the new ST line, so `D <= d_max` can never pass at the
+  flip. With the default `delay.ext_ref=breakout`, the first 10 bars after a
+  flip are measured from the broken band,
+  `(close - final_upper[flip]) / ATR <= ext_max` (1.0); later bars use
+  `D <= d_max`. Set `--set delay.ext_ref=st_line` to restore the original rule.
 * **`K_RTI` is strict in `bar` mode.**  The REST feed has no tick counts, so
   RTI is a volume ratio.  Its median is near 1.0 and readings ≥ 2.0 are rare
   (about 6 % of signal bars in the sample), so most re-arms fail confirmation.

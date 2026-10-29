@@ -23,7 +23,7 @@ from typing import Sequence
 
 from ..config import BaselineConfig
 from ..kiwoom.models import Bar
-from .basic import median, rolling_sum, tick_size
+from .basic import median, tick_size
 
 MINUTES_PER_DAY = 24 * 60
 
@@ -236,6 +236,28 @@ class BaselineBuilder:
         return result
 
 
+def _day_rolling_sum(
+    values: Sequence[float | None], window: int, days: Sequence[str]
+) -> list[float | None]:
+    """Rolling sum that requires a complete window within one trading session."""
+    n = len(values)
+    window = max(1, int(window))
+    out: list[float | None] = [None] * n
+    for i in range(n):
+        lo = i - window + 1
+        if lo < 0 or days[lo] != days[i]:
+            continue
+        total = 0.0
+        for j in range(lo, i + 1):
+            value = values[j]
+            if value is None or not math.isfinite(float(value)):
+                break
+            total += float(value)
+        else:
+            out[i] = total
+    return out
+
+
 def _proxy_buy_sell(bar: Bar) -> tuple[float, float]:
     span = bar.high - bar.low
     if span <= 0:
@@ -291,8 +313,10 @@ def compute_tick_features(
             base_vpt[i] = curve.vpt[minute] if _is_finite(curve.vpt[minute]) else None
             baseline_ready[i] = True
 
+    days = [bar.day for bar in bars]
+
     def window_sum(values: list[float | None], window: int) -> list[float | None]:
-        return rolling_sum(values, window)
+        return _day_rolling_sum(values, window, days)
 
     sum_ticks_1 = window_sum(n_ticks, 1)
     sum_ticks_3 = window_sum(n_ticks, 3)
@@ -332,6 +356,8 @@ def compute_tick_features(
 
     er_5: list[float | None] = [None] * n
     for i in range(4, n):
+        if bars[i - 4].day != bars[i].day:
+            continue
         den = sum_path[i]
         if den is None or den <= 0:
             continue
@@ -356,11 +382,17 @@ def compute_tick_features(
 
     # VI contamination: a VI minute inside the rolling window invalidates it.
     for i in range(n):
-        lo = max(0, i - 9)
-        if any(bars[j].vi_flag for j in range(lo, i + 1)):
+        day = bars[i].day
+        if any(
+            bars[j].vi_flag and bars[j].day == day
+            for j in range(max(0, i - 9), i + 1)
+        ):
             rti_1[i] = rti_3[i] = rti_10[i] = None
             accel[i] = buy_ratio_5[i] = er_5[i] = atv_ratio_5[i] = None
-        if any(bars[j].vi_flag for j in range(max(0, i - 4), i + 1)):
+        if any(
+            bars[j].vi_flag and bars[j].day == day
+            for j in range(max(0, i - 4), i + 1)
+        ):
             buy_ratio_5[i] = er_5[i] = atv_ratio_5[i] = None
 
     return TickFeatures(
