@@ -133,6 +133,8 @@ class ConfirmConfig:
     rsi_hi: float = 80.0
     use_score: bool = False
     min_score: float = 50.0
+    use_risk: bool = False
+    min_risk_pct: float = 0.006  # (close - stop)/close lower bound; ~3x round-trip cost
 
 
 @dataclass

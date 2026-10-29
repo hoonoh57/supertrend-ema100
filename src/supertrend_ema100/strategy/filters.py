@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ..config import BacktestConfig
 from ..data.series import SymbolSeries
+from ..indicators.basic import tick_size
 from ..indicators.extension import extension_value
 
 
@@ -171,6 +172,13 @@ def confirm_checks(series: SymbolSeries, i: int, cfg: BacktestConfig) -> Confirm
     if c.use_rsi:
         value = series.rsi[i]
         checks["K_RSI"] = value is not None and c.rsi_lo <= float(value) <= c.rsi_hi
+    if c.use_risk:
+        st = series.st[i]
+        ok = False
+        if _finite(st) and bar.close > 0:
+            stop = float(st) - cfg.exits.stop_buf_ticks * tick_size(float(st))
+            ok = (bar.close - stop) / bar.close >= c.min_risk_pct
+        checks["K_RISK"] = ok
     if c.use_score:
         checks["K_SCORE"] = series.scores[i].score >= c.min_score
     return ConfirmResult(all(checks.values()), checks)
