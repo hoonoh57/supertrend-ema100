@@ -1,0 +1,58 @@
+{
+  "project": "supertrend-ema100",
+  "status_date": "2026-10-31",
+  "authoritative_repo": "hoonoh57/supertrend-ema100",
+  "branch": "main",
+  "remote_head_before_documentation_commit": "d42761a38d192f0b2eccbf4b7ff9153a0ce05ab6",
+  "remote_head": "READ_REMOTE_REF_AT_SESSION_START",
+  "user_reported_windows_workspace": "E:\\deepseek\\projects\\Supertrend‑EMA100",
+  "local_directory_access": "NOT_AVAILABLE_IN_THIS_ASSISTANT_SESSION",
+  "local_git_head": "UNKNOWN",
+  "local_uncommitted_work": "UNKNOWN; DO_NOT_ASSERT_PRESERVED",
+  "purpose": "Standalone Kiwoom REST Supertrend-EMA100 historical backtester and capture/watch strategy validation",
+  "active_tranche": "HANDOFF_CHECKPOINT_REMOTE_DOCUMENTATION_ONLY",
+  "next_tranche": "LOCAL_WORKTREE_STATUS_AND_BASELINE_UNITTEST",
+  "source_scope": "NO_STRATEGY_CODE_MODIFICATIONS",
+  "implementation": {
+    "daily_minute_rest_fetch": "SOURCE_PRESENT_NOT_RUNTIME_VALIDATED",
+    "supertrend_ema100_jma_and_filters": "SOURCE_PRESENT_NOT_RUNTIME_VALIDATED",
+    "capture_watch_start_universe": "SOURCE_PRESENT_NOT_RUNTIME_VALIDATED",
+    "portfolio_report": "SOURCE_PRESENT_NOT_RUNTIME_VALIDATED"
+  },
+  "tests": {
+    "github_remote_files": "INSPECTED",
+    "local_unittest": "NOT_RUN",
+    "engine_integration": "NOT_RUN",
+    "strategy_performance": "NOT_EVALUATED",
+    "pit_causality": "NOT_AUDITED",
+    "repo_wide_boundary": "NOT_AUDITED"
+  },
+  "findings": [
+    {
+      "key": "UNIVERSE_ALPHANUMERIC_CODES",
+      "category": "CODE_INSPECTION",
+      "observation": "load_universe rejects identifiers unless all digits, including 0011A0; add focused reproduction test",
+      "resolution": "OPEN_UNTESTED"
+    },
+    {
+      "key": "MFE_ENTRY_POLICY_DIFFERENCE",
+      "category": "DEFINITION_MISMATCH",
+      "observation": "capture_mfe.py uses first qualifying bar close, not first trade in minute",
+      "resolution": "OPEN_REQUIRES_LABEL_CONTRACT"
+    },
+    {
+      "key": "CAPTURE_PREWATCH_TRIGGER_CAUSALITY",
+      "category": "AUDIT_HYPOTHESIS",
+      "observation": "prewatch trigger can be stored while watch phase is pre; distinguish before capture versus before watch_start",
+      "resolution": "NOT_AUDITED"
+    }
+  ],
+  "overall_compliance": "NOT_AUDITED",
+  "github_actions": "NOT_VERIFIED",
+  "notes": [
+    "Do not treat leader-selection D1-A or its 8 passing tests as results of this repo.",
+    "Local Windows working tree may differ from GitHub; remote documentation cannot preserve unknown uncommitted changes.",
+    "Remote checkpoint is documentation only, no credentials or proprietary data committed."
+  ],
+  "next_action": "Inspect exact user local Git HEAD/status and run Python unittest baseline before changing any source code; then one focused universe parser test."
+}
